@@ -68,6 +68,8 @@ class MCTSPlanner:
             node = root
             path = [root]
             depth = 0
+            accumulated_value = 0.0
+            discount = 1.0
 
             while True:
                 if sim_env.is_terminal() or depth >= self.config.rollout_depth:
@@ -83,7 +85,16 @@ class MCTSPlanner:
                 if unexpanded:
                     action = unexpanded[0]
                     prior = self.prior_policy.score(node.state, action)
+                    prev_state = sim_env.observe()
                     next_state = sim_env.apply(action)
+                    accumulated_value += self._reward_for_transition(
+                        prev_state=prev_state,
+                        action=action,
+                        next_state=next_state,
+                        sim_env=sim_env,
+                        discount=discount,
+                    )
+                    discount *= self.config.discount
                     child = TreeNode(
                         state=next_state,
                         parent=node,
@@ -102,12 +113,21 @@ class MCTSPlanner:
                 child = self._select_child(node)
                 if child.action_from_parent is None:
                     break
-                sim_env.apply(child.action_from_parent)
+                prev_state = sim_env.observe()
+                next_state = sim_env.apply(child.action_from_parent)
+                accumulated_value += self._reward_for_transition(
+                    prev_state=prev_state,
+                    action=child.action_from_parent,
+                    next_state=next_state,
+                    sim_env=sim_env,
+                    discount=discount,
+                )
+                discount *= self.config.discount
                 node = child
                 path.append(node)
                 depth += 1
 
-            value = self._rollout(sim_env, depth)
+            value = accumulated_value + self._rollout(sim_env, depth, discount)
             self._backpropagate(path, value)
 
         actions = self._extract_best_plan(root)
@@ -142,9 +162,25 @@ class MCTSPlanner:
 
         return max(node.children.values(), key=score)
 
-    def _rollout(self, sim_env: Any, depth: int) -> float:
+    def _reward_for_transition(
+        self,
+        prev_state: DOMState,
+        action: Action,
+        next_state: DOMState,
+        sim_env: Any,
+        discount: float,
+    ) -> float:
+        breakdown = self.reward_model.evaluate(
+            prev_state=prev_state,
+            action=action,
+            next_state=next_state,
+            is_terminal=sim_env.is_terminal(),
+            is_success=sim_env.is_success(),
+        )
+        return discount * breakdown.total
+
+    def _rollout(self, sim_env: Any, depth: int, discount: float) -> float:
         total = 0.0
-        discount = 1.0
         current_depth = depth
 
         while not sim_env.is_terminal() and current_depth < self.config.rollout_depth:
@@ -156,14 +192,13 @@ class MCTSPlanner:
             action = candidates[0]
             prev_state = state
             next_state = sim_env.apply(action)
-            breakdown = self.reward_model.evaluate(
+            total += self._reward_for_transition(
                 prev_state=prev_state,
                 action=action,
                 next_state=next_state,
-                is_terminal=sim_env.is_terminal(),
-                is_success=sim_env.is_success(),
+                sim_env=sim_env,
+                discount=discount,
             )
-            total += discount * breakdown.total
             discount *= self.config.discount
             current_depth += 1
 
@@ -185,7 +220,7 @@ class MCTSPlanner:
                 break
             best_child = max(
                 node.children.values(),
-                key=lambda child: (child.visits, child.q_value),
+                key=lambda child: (child.q_value, child.visits),
             )
             if best_child.action_from_parent is None:
                 break

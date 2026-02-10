@@ -43,21 +43,18 @@ class RewardModel:
         if action.action_type == "type" and action.node_id:
             was_filled = prev_state.metadata.get(f"filled:{action.node_id}") == "true"
             is_filled = next_state.metadata.get(f"filled:{action.node_id}") == "true"
-            reward += 0.7 if not was_filled and is_filled else 0.1
+            reward += 0.7 if not was_filled and is_filled else -0.1
 
         if action.action_type == "click":
-            reward += 0.1
+            reward += 0.05
             if action.node_id == "n_submit" and next_state.metadata.get("all_required_filled") == "true":
-                reward += 0.7
+                reward += 0.95
 
         if action.action_type == "select":
             reward += 0.2
 
         if action.action_type == "scroll":
-            reward -= 0.05
-
-        if len(next_state.interaction_history) > len(prev_state.interaction_history):
-            reward += 0.02
+            reward -= 0.1
 
         return reward
 

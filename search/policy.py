@@ -13,7 +13,7 @@ class PriorPolicy:
         if action.action_type == "type":
             score += 0.45
             if action.node_id and state.metadata.get(f"filled:{action.node_id}") == "true":
-                score -= 0.35
+                score -= 0.8
             if action.node_id:
                 node = state.nodes.get(action.node_id)
                 if node and node.attributes.get("required") == "true":
@@ -34,5 +34,8 @@ class PriorPolicy:
 
         if action.metadata.get("destructive") == "true":
             score -= 0.5
+
+        if action.canonical() in state.interaction_history:
+            score -= 0.4
 
         return max(score, 0.01)

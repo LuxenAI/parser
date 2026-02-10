@@ -41,7 +41,7 @@ class ActionGenerator:
             if not node.visible:
                 continue
 
-            if node.interactable:
+            if node.interactable and node.tag not in {"input", "textarea", "select"}:
                 metadata: dict[str, str] = {}
                 if node.attributes.get("destructive") == "true":
                     metadata["destructive"] = "true"
