@@ -1,6 +1,5 @@
 import type { SlashCommand } from "@mariozechner/pi-tui";
 import type { OpenClawConfig } from "../config/types.js";
-import { listChatCommands, listChatCommandsForConfig } from "../auto-reply/commands-registry.js";
 import { formatThinkingLevels, listThinkingLevelLabels } from "../auto-reply/thinking.js";
 
 const VERBOSE_LEVELS = ["on", "off"];
@@ -39,7 +38,7 @@ export function parseCommand(input: string): ParsedCommand {
 
 export function getSlashCommands(options: SlashCommandOptions = {}): SlashCommand[] {
   const thinkLevels = listThinkingLevelLabels(options.provider, options.model);
-  const commands: SlashCommand[] = [
+  return [
     { name: "help", description: "Show slash command help" },
     { name: "status", description: "Show gateway status summary" },
     { name: "agent", description: "Switch agent (or open picker)" },
@@ -120,22 +119,6 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     { name: "exit", description: "Exit the TUI" },
     { name: "quit", description: "Exit the TUI" },
   ];
-
-  const seen = new Set(commands.map((command) => command.name));
-  const gatewayCommands = options.cfg ? listChatCommandsForConfig(options.cfg) : listChatCommands();
-  for (const command of gatewayCommands) {
-    const aliases = command.textAliases.length > 0 ? command.textAliases : [`/${command.key}`];
-    for (const alias of aliases) {
-      const name = alias.replace(/^\//, "").trim();
-      if (!name || seen.has(name)) {
-        continue;
-      }
-      seen.add(name);
-      commands.push({ name, description: command.description });
-    }
-  }
-
-  return commands;
 }
 
 export function helpText(options: SlashCommandOptions = {}): string {

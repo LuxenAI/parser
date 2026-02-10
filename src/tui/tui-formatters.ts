@@ -1,4 +1,4 @@
-import { formatRawAssistantErrorForUi } from "../agents/pi-embedded-helpers.js";
+import { formatRawAssistantErrorForUi } from "../agents/pi-embedded-helpers/errors.js";
 import { formatTokenCount } from "../utils/usage-format.js";
 
 export function resolveFinalAssistantText(params: {
